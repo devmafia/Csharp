@@ -1,0 +1,104 @@
+
+services:
+  user-service:
+    build:
+      context: ./UserService
+      dockerfile: Dockerfile
+    ports:
+      - "5003:5003"
+    environment:
+      - DOTNET_USE_POLLING_FILE_WATCHER=1
+      - DOTNET_WATCH=1
+      - ConnectionStrings__DefaultConnection=Host=192.168.0.102;Port=5432;Database=task_service;Username=postgres;Password=tiger7W!
+      - ASPNETCORE_ENVIRONMENT=Development
+      - RabbitMQ__ConnectionString=amqp://guest:guest@rabbitmq:5672
+    depends_on:
+      - postgres
+      - rabbitmq
+    volumes:
+      - ./UserService:/src:cached
+      - /app:/app:cached
+    networks:
+      - app-network
+
+  task-service:
+    build:
+      context: ./TaskService
+      dockerfile: Dockerfile
+    ports:
+      - "5001:5001"
+    environment:
+      - DOTNET_USE_POLLING_FILE_WATCHER=1
+      - DOTNET_WATCH=1
+      - ConnectionStrings__DefaultConnection=Host=192.168.0.102;Port=5432;Database=task_service;Username=postgres;Password=tiger7W!
+      - ASPNETCORE_ENVIRONMENT=Development
+      - RabbitMQ__ConnectionString=amqp://guest:guest@rabbitmq:5672
+    depends_on:
+      - postgres
+      - rabbitmq
+    volumes:
+      - ./TaskService:/src:cached
+      - /app:/app:cached
+    networks:
+      - app-network
+
+  notification-service:
+    build:
+      context: ./NotificationService
+      dockerfile: Dockerfile
+    ports:
+      - "5002:5002"
+    environment:
+      - DOTNET_USE_POLLING_FILE_WATCHER=1
+      - DOTNET_WATCH=1
+      - ASPNETCORE_ENVIRONMENT=Development
+      - Redis__ConnectionString=redis:6379,abortConnect=false
+      - RabbitMQ__ConnectionString=amqp://guest:guest@rabbitmq:5672
+    depends_on:
+      - redis
+      - rabbitmq
+    volumes:
+      - ./NotificationService:/src:cached
+      - /app:/app:cached
+    networks:
+      - app-network
+
+  postgres:
+    image: postgres:latest
+    ports:
+      - "5432:5432"
+    networks:
+      - app-network
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: tiger7W!
+      POSTGRES_DB: task_service
+    # volumes:
+      # - postgres_data:/var/lib/postgresql/data
+      # - ./db-init-scripts:/docker-entrypoint-initdb.d
+
+
+  redis:
+    image: redis:latest
+    ports:
+      - "6379:6379"
+    networks:
+      - app-network
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    networks:
+    - app-network
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+
+# volumes:
+#   postgres_data:
+
+networks:
+  app-network:
+    driver: bridge
